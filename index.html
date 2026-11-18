@@ -17,31 +17,45 @@
 <body class="bg-gray-900 text-gray-100 min-h-screen pb-12">
 
     <!-- হেডার -->
-    <header class="bg-gray-800 shadow-md py-4 px-6 mb-8 border-b border-gray-700">
+    <header class="bg-gray-800 shadow-md py-4 px-6 mb-6 border-b border-gray-700">
         <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
             <h1 class="text-2xl font-bold flex items-center gap-2 text-indigo-400">
                 <span>📸</span> আমার ফটো গ্যালারি
             </h1>
             
-            <!-- ছবি আপলোড বাটন -->
-            <label id="uploadLabel" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow transition cursor-pointer flex items-center gap-2">
-                <span id="uploadText">➕ নতুন ছবি যোগ করুন</span>
-                <input type="file" id="imageInput" accept="image/*" class="hidden">
-            </label>
+            <!-- ক্যাটাগরি সিলেক্ট ও ছবি আপলোড বাটন -->
+            <div class="flex flex-wrap items-center gap-3">
+                <select id="uploadCategory" class="bg-gray-700 text-white text-sm px-3 py-2.5 rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500">
+                    <option value="ব্যক্তিগত">📁 ব্যক্তিগত</option>
+                    <option value="পরিবার">👨‍👩‍👧‍👦 পরিবার</option>
+                    <option value="ভ্রমণ">✈️ ভ্রমণ</option>
+                    <option value="প্রকৃতি">🌿 প্রকৃতি</option>
+                    <option value="ইভেন্ট">🎉 ইভেন্ট</option>
+                </select>
+
+                <label id="uploadLabel" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow transition cursor-pointer flex items-center gap-2">
+                    <span id="uploadText">➕ ছবি যোগ করুন</span>
+                    <input type="file" id="imageInput" accept="image/*" class="hidden">
+                </label>
+            </div>
         </div>
     </header>
 
     <main class="max-w-6xl mx-auto px-4">
 
-        <!-- ছবি দেখানোর গ্রিড -->
-        <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <!-- ছবিগুলো এখানে লোড হবে -->
+        <!-- ক্যাটাগরি ফিল্টার বাটনসমূহ -->
+        <div id="filterButtons" class="flex flex-wrap gap-2 mb-8 justify-center">
+            <button onclick="filterCategory('সব')" class="filter-btn bg-indigo-600 text-white px-5 py-2 rounded-full text-sm font-medium transition shadow">সব ছবি</button>
+            <button onclick="filterCategory('ব্যক্তিগত')" class="filter-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-5 py-2 rounded-full text-sm font-medium border border-gray-700 transition">ব্যক্তিগত</button>
+            <button onclick="filterCategory('পরিবার')" class="filter-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-5 py-2 rounded-full text-sm font-medium border border-gray-700 transition">পরিবার</button>
+            <button onclick="filterCategory('ভ্রমণ')" class="filter-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-5 py-2 rounded-full text-sm font-medium border border-gray-700 transition">ভ্রমণ</button>
+            <button onclick="filterCategory('প্রকৃতি')" class="filter-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-5 py-2 rounded-full text-sm font-medium border border-gray-700 transition">প্রকৃতি</button>
+            <button onclick="filterCategory('ইভেন্ট')" class="filter-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-5 py-2 rounded-full text-sm font-medium border border-gray-700 transition">ইভেন্ট</button>
         </div>
 
-        <!-- খালি গ্যালারি মেসেজ -->
-        <div id="emptyMessage" class="hidden text-center py-20 text-gray-400">
-            <p class="text-xl">আপনার গ্যালারিতে এখনো কোনো ছবি নেই।</p>
-            <p class="text-sm mt-2">উপরের "নতুন ছবি যোগ করুন" বাটন থেকে ছবি আপলোড করুন।</p>
+        <!-- ছবি দেখানোর গ্রিড -->
+        <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- ক্যাটাগরিতে ক্লিক করলে ছবিগুলো এখানে চলে আসবে -->
         </div>
 
     </main>
@@ -57,43 +71,62 @@
     </div>
 
     <script>
-        // আপনার ImgBB API Key সেট করা আছে
         const IMGBB_API_KEY = "D7cf348acc9a807d5c5528063e703630"; 
 
         let photos = JSON.parse(localStorage.getItem('myGalleryPhotos')) || [];
         let currentPhotoId = null;
+        let currentCategory = 'সব';
 
         const galleryGrid = document.getElementById('galleryGrid');
-        const emptyMessage = document.getElementById('emptyMessage');
         const imageInput = document.getElementById('imageInput');
         const uploadText = document.getElementById('uploadText');
+        const uploadCategory = document.getElementById('uploadCategory');
+
+        // ক্যাটাগরি ফিল্টার বাটন ফাংশন
+        function filterCategory(category) {
+            currentCategory = category;
+
+            // বাটনের কালার পরিবর্তন
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.textContent.includes(category) || (category === 'সব' && btn.textContent === 'সব ছবি')) {
+                    btn.className = "filter-btn bg-indigo-600 text-white px-5 py-2 rounded-full text-sm font-medium transition shadow";
+                } else {
+                    btn.className = "filter-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-5 py-2 rounded-full text-sm font-medium border border-gray-700 transition";
+                }
+            });
+
+            renderGallery();
+        }
 
         function renderGallery() {
             galleryGrid.innerHTML = '';
-            if (photos.length === 0) {
-                emptyMessage.classList.remove('hidden');
-                return;
-            }
-            emptyMessage.classList.add('hidden');
 
-            photos.forEach(photo => {
+            const filteredPhotos = currentCategory === 'সব' 
+                ? photos 
+                : photos.filter(photo => (photo.category || 'ব্যক্তিগত') === currentCategory);
+
+            filteredPhotos.forEach(photo => {
                 let card = document.createElement('div');
                 card.className = "bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-700 hover:scale-[1.02] transition duration-300 cursor-pointer group relative";
                 card.onclick = () => openLightbox(photo);
 
                 card.innerHTML = `
-                    <div class="h-48 overflow-hidden bg-gray-900">
+                    <div class="h-48 overflow-hidden bg-gray-900 relative">
                         <img src="${photo.url}" alt="${photo.title}" loading="lazy" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
+                        <span class="absolute top-2 right-2 bg-black bg-opacity-70 text-indigo-300 text-xs px-2.5 py-1 rounded-full">
+                            ${photo.category || 'ব্যক্তিগত'}
+                        </span>
                     </div>
                     <div class="p-3">
-                        <p class="text-sm text-gray-300 truncate">${photo.title || 'ছবি'}</p>
+                        <p class="text-sm text-gray-300 truncate font-medium">${photo.title || 'ছবি'}</p>
+                        <p class="text-xs text-gray-400 mt-1">📅 ${photo.date || 'তারিখ নেই'}</p>
                     </div>
                 `;
                 galleryGrid.appendChild(card);
             });
         }
 
-        // ছবি আপলোড করার ফাংশন
+        // ছবি আপলোড করার সময়
         imageInput.addEventListener('change', async (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -112,10 +145,17 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    // বর্তমান তারিখ ও সময় ফরম্যাট করা
+                    const now = new Date();
+                    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                    const formattedDate = now.toLocaleDateString('bn-BD', options);
+
                     const newPhoto = {
                         id: Date.now(),
                         url: result.data.url,
-                        title: file.name
+                        title: file.name,
+                        category: uploadCategory.value,
+                        date: formattedDate
                     };
                     photos.unshift(newPhoto);
                     localStorage.setItem('myGalleryPhotos', JSON.stringify(photos));
@@ -127,7 +167,7 @@
                 console.error("Error:", error);
                 alert("নেটওয়ার্ক সমস্যা বা API Key ভুল রয়েছে।");
             } finally {
-                uploadText.textContent = "➕ নতুন ছবি যোগ করুন";
+                uploadText.textContent = "➕ ছবি যোগ করুন";
                 imageInput.disabled = false;
                 imageInput.value = '';
             }
