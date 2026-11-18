@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>আমার ফটো গ্যালারি (Firebase)</title>
+    <title>আমার ফটো গ্যালারি</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts (Bangla) -->
@@ -33,20 +33,15 @@
 
     <main class="max-w-6xl mx-auto px-4">
 
-        <!-- লোডিং ইন্ডিকেটর -->
-        <div id="loadingIndicator" class="text-center py-10 text-indigo-400 font-medium">
-            ছবি লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...
-        </div>
-
         <!-- ছবি দেখানোর গ্রিড -->
         <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <!-- Firebase থেকে ছবিগুলো এখানে লোড হবে -->
+            <!-- ছবিগুলো এখানে লোড হবে -->
         </div>
 
         <!-- খালি গ্যালারি মেসেজ -->
         <div id="emptyMessage" class="hidden text-center py-20 text-gray-400">
             <p class="text-xl">আপনার গ্যালারিতে এখনো কোনো ছবি নেই।</p>
-            <p class="text-sm mt-2">উপরের "নতুন ছবি যোগ করুন" বাটন থেকে অরিজিনাল ছবি আপলোড করুন।</p>
+            <p class="text-sm mt-2">উপরের "নতুন ছবি যোগ করুন" বাটন থেকে ছবি আপলোড করুন।</p>
         </div>
 
     </main>
@@ -61,81 +56,44 @@
         </div>
     </div>
 
-    <!-- Firebase SDKs (Module) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
+    <script>
+        // আপনার ImgBB API Key সেট করা আছে
+        const IMGBB_API_KEY = "D7cf348acc9a807d5c5528063e703630"; 
 
-        // আপনার Firebase কনফিগারেশন
-        const firebaseConfig = {
-            apiKey: "AIzaSyDb78rGFv69-vFuiOqCwFdGhZp8XoqcSbQ",
-            authDomain: "shahed-photos.firebaseapp.com",
-            projectId: "shahed-photos",
-            storageBucket: "shahed-photos.firebasestorage.app",
-            messagingSenderId: "787645942856",
-            appId: "1:787645942856:web:55c692c88a5cf69ae75c7d",
-            measurementId: "G-R8JZRC4C6T"
-        };
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const storage = getStorage(app);
+        let photos = JSON.parse(localStorage.getItem('myGalleryPhotos')) || [];
+        let currentPhotoId = null;
 
         const galleryGrid = document.getElementById('galleryGrid');
-        const loadingIndicator = document.getElementById('loadingIndicator');
         const emptyMessage = document.getElementById('emptyMessage');
         const imageInput = document.getElementById('imageInput');
         const uploadText = document.getElementById('uploadText');
 
-        let currentPhoto = null;
-
-        // ১. Firebase থেকে ছবি লোড করা
-        async function loadPhotos() {
-            loadingIndicator.classList.remove('hidden');
+        function renderGallery() {
             galleryGrid.innerHTML = '';
+            if (photos.length === 0) {
+                emptyMessage.classList.remove('hidden');
+                return;
+            }
             emptyMessage.classList.add('hidden');
 
-            try {
-                const q = query(collection(db, "photos"), orderBy("createdAt", "desc"));
-                const querySnapshot = await getDocs(q);
+            photos.forEach(photo => {
+                let card = document.createElement('div');
+                card.className = "bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-700 hover:scale-[1.02] transition duration-300 cursor-pointer group relative";
+                card.onclick = () => openLightbox(photo);
 
-                loadingIndicator.classList.add('hidden');
-
-                if (querySnapshot.empty) {
-                    emptyMessage.classList.remove('hidden');
-                    return;
-                }
-
-                querySnapshot.forEach((docSnap) => {
-                    const photo = { id: docSnap.id, ...docSnap.data() };
-                    renderPhotoCard(photo);
-                });
-            } catch (error) {
-                console.error("Error loading photos: ", error);
-                loadingIndicator.textContent = "ছবি লোড করতে সমস্যা হয়েছে। Firebase Rules চেক করুন।";
-            }
+                card.innerHTML = `
+                    <div class="h-48 overflow-hidden bg-gray-900">
+                        <img src="${photo.url}" alt="${photo.title}" loading="lazy" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
+                    </div>
+                    <div class="p-3">
+                        <p class="text-sm text-gray-300 truncate">${photo.title || 'ছবি'}</p>
+                    </div>
+                `;
+                galleryGrid.appendChild(card);
+            });
         }
 
-        // ২. গ্যালারিতে ছবির কার্ড তৈরি করা
-        function renderPhotoCard(photo) {
-            const card = document.createElement('div');
-            card.className = "bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-700 hover:scale-[1.02] transition duration-300 cursor-pointer group relative";
-            card.onclick = () => openLightbox(photo);
-
-            card.innerHTML = `
-                <div class="h-48 overflow-hidden bg-gray-900">
-                    <img src="${photo.url}" alt="${photo.title}" loading="lazy" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
-                </div>
-                <div class="p-3">
-                    <p class="text-sm text-gray-300 truncate">${photo.title || 'ছবি'}</p>
-                </div>
-            `;
-            galleryGrid.appendChild(card);
-        }
-
-        // ৩. নতুন ছবি Firebase Storage-এ আপলোড করা (অরিজিনাল সাইজে)
+        // ছবি আপলোড করার ফাংশন
         imageInput.addEventListener('change', async (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -143,38 +101,40 @@
             uploadText.textContent = "⏳ আপলোড হচ্ছে...";
             imageInput.disabled = true;
 
+            const formData = new FormData();
+            formData.append("image", file);
+
             try {
-                const fileName = `${Date.now()}_${file.name}`;
-                const storageRef = ref(storage, `gallery/${fileName}`);
-
-                // ফাইল আপলোড
-                const snapshot = await uploadBytes(storageRef, file);
-                // ডাউনলোড লিংক নেওয়া
-                const downloadURL = await getDownloadURL(snapshot.ref);
-
-                // Firestore ডাটাবেজে তথ্য সেভ করা
-                await addDoc(collection(db, "photos"), {
-                    title: file.name,
-                    url: downloadURL,
-                    storagePath: `gallery/${fileName}`,
-                    createdAt: serverTimestamp()
+                const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+                    method: "POST",
+                    body: formData
                 });
+                const result = await response.json();
 
+                if (result.success) {
+                    const newPhoto = {
+                        id: Date.now(),
+                        url: result.data.url,
+                        title: file.name
+                    };
+                    photos.unshift(newPhoto);
+                    localStorage.setItem('myGalleryPhotos', JSON.stringify(photos));
+                    renderGallery();
+                } else {
+                    alert("ছবি আপলোড ব্যর্থ হয়েছে!");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("নেটওয়ার্ক সমস্যা বা API Key ভুল রয়েছে।");
+            } finally {
                 uploadText.textContent = "➕ নতুন ছবি যোগ করুন";
                 imageInput.disabled = false;
                 imageInput.value = '';
-                loadPhotos(); // গ্যালারি রিফ্রেশ
-            } catch (error) {
-                console.error("Upload error: ", error);
-                alert("ছবি আপলোড ব্যর্থ হয়েছে! Firebase Storage ও Firestore Rules পাবলিক করা আছে কিনা চেক করুন।");
-                uploadText.textContent = "➕ নতুন ছবি যোগ করুন";
-                imageInput.disabled = false;
             }
         });
 
-        // ৪. লাইটবক্স ওপেন ও ক্লোজ করা
         function openLightbox(photo) {
-            currentPhoto = photo;
+            currentPhotoId = photo.id;
             document.getElementById('lightboxImg').src = photo.url;
             document.getElementById('downloadOriginalBtn').href = photo.url;
             document.getElementById('lightbox').classList.remove('hidden');
@@ -184,30 +144,15 @@
             document.getElementById('lightbox').classList.add('hidden');
         };
 
-        // ৫. ছবি ডিলিট করা (Storage এবং Firestore উভয় জায়গা থেকে)
-        document.getElementById('deleteBtn').onclick = async () => {
-            if (!currentPhoto) return;
-            if (!confirm('আপনি কি স্থায়ীভাবে এই ছবিটি মুছে ফেলতে চান?')) return;
-
-            try {
-                // Storage থেকে ফাইল ডিলিট
-                if (currentPhoto.storagePath) {
-                    const fileRef = ref(storage, currentPhoto.storagePath);
-                    await deleteObject(fileRef);
-                }
-                // Firestore থেকে ডকুমেন্ট ডিলিট
-                await deleteDoc(doc(db, "photos", currentPhoto.id));
-
-                document.getElementById('lightbox').classList.add('hidden');
-                loadPhotos();
-            } catch (error) {
-                console.error("Delete error: ", error);
-                alert("ছবি ডিলিট করতে সমস্যা হয়েছে।");
-            }
+        document.getElementById('deleteBtn').onclick = () => {
+            if (!confirm('আপনি কি এই ছবিটি মুছে ফেলতে চান?')) return;
+            photos = photos.filter(p => p.id !== currentPhotoId);
+            localStorage.setItem('myGalleryPhotos', JSON.stringify(photos));
+            renderGallery();
+            document.getElementById('lightbox').classList.add('hidden');
         };
 
-        // পেজ লোড হলে ছবিগুলো নিয়ে আসা
-        loadPhotos();
+        renderGallery();
     </script>
 </body>
 </html>
