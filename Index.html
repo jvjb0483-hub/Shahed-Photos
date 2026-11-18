@@ -122,4 +122,92 @@
         function renderPhotoCard(photo) {
             const card = document.createElement('div');
             card.className = "bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-700 hover:scale-[1.02] transition duration-300 cursor-pointer group relative";
-            card.onclick = () => open
+            card.onclick = () => openLightbox(photo);
+
+            card.innerHTML = `
+                <div class="h-48 overflow-hidden bg-gray-900">
+                    <img src="${photo.url}" alt="${photo.title}" loading="lazy" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
+                </div>
+                <div class="p-3">
+                    <p class="text-sm text-gray-300 truncate">${photo.title || 'ছবি'}</p>
+                </div>
+            `;
+            galleryGrid.appendChild(card);
+        }
+
+        // ৩. নতুন ছবি Firebase Storage-এ আপলোড করা (অরিজিনাল সাইজে)
+        imageInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            uploadText.textContent = "⏳ আপলোড হচ্ছে...";
+            imageInput.disabled = true;
+
+            try {
+                const fileName = `${Date.now()}_${file.name}`;
+                const storageRef = ref(storage, `gallery/${fileName}`);
+
+                // ফাইল আপলোড
+                const snapshot = await uploadBytes(storageRef, file);
+                // ডাউনলোড লিংক নেওয়া
+                const downloadURL = await getDownloadURL(snapshot.ref);
+
+                // Firestore ডাটাবেজে তথ্য সেভ করা
+                await addDoc(collection(db, "photos"), {
+                    title: file.name,
+                    url: downloadURL,
+                    storagePath: `gallery/${fileName}`,
+                    createdAt: serverTimestamp()
+                });
+
+                uploadText.textContent = "➕ নতুন ছবি যোগ করুন";
+                imageInput.disabled = false;
+                imageInput.value = '';
+                loadPhotos(); // গ্যালারি রিফ্রেশ
+            } catch (error) {
+                console.error("Upload error: ", error);
+                alert("ছবি আপলোড ব্যর্থ হয়েছে! Firebase Storage ও Firestore Rules পাবলিক করা আছে কিনা চেক করুন।");
+                uploadText.textContent = "➕ নতুন ছবি যোগ করুন";
+                imageInput.disabled = false;
+            }
+        });
+
+        // ৪. লাইটবক্স ওপেন ও ক্লোজ করা
+        function openLightbox(photo) {
+            currentPhoto = photo;
+            document.getElementById('lightboxImg').src = photo.url;
+            document.getElementById('downloadOriginalBtn').href = photo.url;
+            document.getElementById('lightbox').classList.remove('hidden');
+        }
+
+        document.getElementById('closeLightboxBtn').onclick = () => {
+            document.getElementById('lightbox').classList.add('hidden');
+        };
+
+        // ৫. ছবি ডিলিট করা (Storage এবং Firestore উভয় জায়গা থেকে)
+        document.getElementById('deleteBtn').onclick = async () => {
+            if (!currentPhoto) return;
+            if (!confirm('আপনি কি স্থায়ীভাবে এই ছবিটি মুছে ফেলতে চান?')) return;
+
+            try {
+                // Storage থেকে ফাইল ডিলিট
+                if (currentPhoto.storagePath) {
+                    const fileRef = ref(storage, currentPhoto.storagePath);
+                    await deleteObject(fileRef);
+                }
+                // Firestore থেকে ডকুমেন্ট ডিলিট
+                await deleteDoc(doc(db, "photos", currentPhoto.id));
+
+                document.getElementById('lightbox').classList.add('hidden');
+                loadPhotos();
+            } catch (error) {
+                console.error("Delete error: ", error);
+                alert("ছবি ডিলিট করতে সমস্যা হয়েছে।");
+            }
+        };
+
+        // পেজ লোড হলে ছবিগুলো নিয়ে আসা
+        loadPhotos();
+    </script>
+</body>
+</html>
